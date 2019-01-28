@@ -1,0 +1,69 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  labels:
+    app: {{ template "kafka.name" . }}
+    component: kafka-connector
+    chart: {{ .Chart.Name }}-{{ .Chart.Version }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
+  name: kafka-connector
+  namespace: {{ .Release.Namespace | quote }}
+spec:
+  replicas: {{ .Values.connector.replicas }}
+  template:
+    metadata:
+      labels:
+        app: kafka
+        component: kafka-connector
+    spec:
+      {{- if .Values.connector.basic_auth }}
+      volumes:
+      - name: auth
+        secret:
+          secretName: basic-auth
+      {{- end }}
+      containers:
+      - name: kafka
+        image: {{ .Values.connector.image }}
+        env:
+          - name: gateway_url
+            value: "{{ .Values.connector.gateway_url }}"
+          - name: topics
+            value: "{{ .Values.connector.topics }}"
+          - name: print_response
+            value: "{{ .Values.connector.print_response }}"
+          {{- if .Values.connector.basic_auth }}
+          - name: basic_auth
+            value: "true"
+          - name: secret_mount_path
+            value: "/var/secrets/"
+          {{- end }}
+          - name: broker_host
+            value: "{{ .Values.connector.broker_host }}"
+          {{- if .Values.connector.upstream_timeout }}
+          - name: upstream_timeout
+            value: "{{ .Values.connector.upstream_timeout }}"
+          {{- end }}
+          {{- if .Values.connector.rebuild_interval }}
+          - name: rebuild_interval
+            value: "{{ .Values.connector.rebuild_interval }}"
+          {{- end }}
+        {{- if .Values.connector.basic_auth }}
+        volumeMounts:
+            - name: auth
+              readOnly: true
+              mountPath: "/var/secrets/"
+        {{- end }}
+    {{- with .Values.nodeSelector }}
+      nodeSelector:
+{{ toYaml . | indent 8 }}
+    {{- end }}
+    {{- with .Values.affinity }}
+      affinity:
+{{ toYaml . | indent 8 }}
+    {{- end }}
+    {{- with .Values.tolerations }}
+      tolerations:
+{{ toYaml . | indent 8 }}
+    {{- end }}
